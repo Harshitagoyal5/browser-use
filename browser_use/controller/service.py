@@ -1031,7 +1031,7 @@ Explain the content of the page and that the requested information is not availa
 				raise BrowserError(msg)
 
 		@self.registry.action('Google Sheets: Get the contents of the entire sheet', domains=['https://docs.google.com'])
-		async def read_sheet_contents(page: Page):
+		async def read_sheet_contents(cell_or_range: str,page: Page):
 			# select all cells
 			await page.keyboard.press('Enter')
 			await page.keyboard.press('Escape')
