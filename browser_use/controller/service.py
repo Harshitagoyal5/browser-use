@@ -257,11 +257,17 @@ class Controller(Generic[Context]):
 		async def switch_tab(params: SwitchTabAction, browser_session: BrowserSession):
 			await browser_session.switch_to_tab(params.page_id)
 			page = await browser_session.get_current_page()
+			await page.bring_to_front()
 			try:
 				await page.wait_for_load_state(state='domcontentloaded', timeout=5_000)
 				# page was already loaded when we first navigated, this is additional to wait for onfocus/onblur animations/ajax to settle
+				# Wait for network idle to ensure that the page is fully loaded and settled after a tab switch,
+				# especially for heavy Single-Page Applications (SPAs) like LinkedIn.
+				# This helps prevent timeout errors in subsequent operations like taking a screenshot.
+				await page.wait_for_load_state(state='networkidle', timeout=10_000)
 			except Exception as e:
 				pass
+				logger.warning(f"Timed out waiting for network idle after switching to tab #{params.page_id}. Proceeding anyway. Error: {e}")
 			msg = f'🔄  Switched to tab #{params.page_id} with url {page.url}'
 			logger.info(msg)
 			return ActionResult(
