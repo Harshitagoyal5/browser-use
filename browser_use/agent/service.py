@@ -504,6 +504,98 @@ class Agent(Generic[Context, AgentStructuredOutput]):
 		assert self.browser_session is not None, 'BrowserSession is not set up'
 		return self.browser_session.browser_profile
 
+	async def _ainvoke_with_retry_timeout(self, llm_instance: BaseChatModel, messages: list[BaseMessage], output_format: Any, request_interval=10, max_retries=3):
+
+		"""
+		Send LLM requests every 20 seconds (max 3), return first successful response.
+		"""
+		start_time = time.time()
+		self.logger.debug(f"🚀 Starting LLM retry process (max {max_retries} attempts, {request_interval}s intervals)")
+		tasks = []
+  
+		try:
+			# Send requests with 20-second intervals
+			for attempt in range(max_retries):
+				# Start new request
+				self.logger.info(f"🔄 Starting LLM request attempt {attempt + 1}/{max_retries}")
+    
+				# Use the new ainvoke method signature with output_format
+				task = asyncio.create_task(llm_instance.ainvoke(messages, output_format=output_format))
+				tasks.append(task)
+
+				# Wait for any task to complete or timeout (except last attempt)
+				if attempt < max_retries - 1:
+					self.logger.debug(f"⏳ Waiting up to {request_interval}s for any request to complete...")
+					done, pending = await asyncio.wait(
+						tasks, 
+						timeout=request_interval, 
+						return_when=asyncio.FIRST_COMPLETED
+					)
+
+					# Check if any task completed successfully
+					for completed_task in done:
+						try:
+							result = await completed_task
+							# Success! Cancel remaining and return
+							elapsed_time = time.time() - start_time
+							self.logger.info(f"✅ LLM request completed successfully in {elapsed_time:.2f}s! Cancelling {len([t for t in tasks if not t.done()])} remaining tasks")
+							for t in tasks:
+								if not t.done():
+									t.cancel()
+							return result
+						except Exception as e:
+							# Task failed, remove from list and continue
+							self.logger.warning(f"❌ LLM request attempt failed: {str(e)}")
+							tasks.remove(completed_task)
+
+					if pending:
+						self.logger.debug(f"⏰ {request_interval}s timeout reached, {len(pending)} requests still running")
+
+			# All requests sent, wait for any remaining to complete
+			if tasks:
+				self.logger.info(f"🕐 All {max_retries} requests sent, waiting for any of {len(tasks)} remaining to complete...")
+				while tasks:
+					done, pending = await asyncio.wait(
+						tasks, 
+						return_when=asyncio.FIRST_COMPLETED
+					)
+					for completed_task in done:
+						try:
+							result = await completed_task
+       
+							# Success! Cancel remaining and return
+							elapsed_time = time.time() - start_time
+							self.logger.info(f"✅ LLM request completed successfully in {elapsed_time:.2f}s! Cancelling {len([t for t in tasks if not t.done()])} remaining tasks")
+							for t in tasks:
+								if not t.done():
+									t.cancel()
+							return result
+						except Exception as e:
+          
+							# Task failed, remove and continue
+							self.logger.warning(f"❌ LLM request attempt failed: {str(e)}")
+							tasks.remove(completed_task)
+       
+			# All tasks failed
+			elapsed_time = time.time() - start_time
+			self.logger.error(f"💥 All {max_retries} retry attempts failed after {elapsed_time:.2f}s")
+			raise Exception("All retry attempts failed")
+
+		except Exception as e:
+			# Cancel all remaining tasks
+			remaining_count = len([t for t in tasks if not t.done()])
+
+			if remaining_count > 0:
+				self.logger.debug(f"🛑 Cancelling {remaining_count} remaining tasks due to error")
+
+			for task in tasks:
+				if not task.done():
+					task.cancel()
+			elapsed_time = time.time() - start_time
+			self.logger.error(f"❌ LLM retry process failed after {elapsed_time:.2f}s: {str(e)}")
+     
+			raise e
+
 	async def _check_and_update_downloads(self, context: str = '') -> None:
 		"""Check for new downloads and update available file paths."""
 		if not self.has_downloads_path:
@@ -754,14 +846,16 @@ class Agent(Generic[Context, AgentStructuredOutput]):
 
 		try:
 			model_output = await asyncio.wait_for(
-				self._get_model_output_with_retry(input_messages), timeout=self.settings.llm_timeout
+				# self._get_model_output_with_retry(input_messages), timeout=self.settings.llm_timeout
+				self._ainvoke_with_retry_timeout(self.llm, input_messages, output_format=self.AgentOutput, request_interval=10, max_retries=3), timeout=self.settings.llm_timeout
 			)
+			self.state.last_model_output = model_output
 		except TimeoutError:
 			raise TimeoutError(
 				f'LLM call timed out after {self.settings.llm_timeout} seconds. Keep your thinking and output short.'
 			)
-
-		self.state.last_model_output = model_output
+		except Exception as e:
+			raise e
 
 		# Check again for paused/stopped state after getting model output
 		await self._raise_if_stopped_or_paused()
