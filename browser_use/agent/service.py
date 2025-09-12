@@ -1109,7 +1109,8 @@ class Agent(Generic[Context, AgentStructuredOutput]):
 		"""Get next action from LLM based on current state"""
 
 		try:
-			response = await self.llm.ainvoke(input_messages, output_format=self.AgentOutput)
+			# response = await self.llm.ainvoke(input_messages, output_format=self.AgentOutput)
+			response = await self._ainvoke_with_retry_timeout(self.llm, input_messages, output_format=self.AgentOutput)
 			parsed = response.completion
 
 			# cut the number of actions to max_actions_per_step if needed
