@@ -379,10 +379,15 @@ Only use this for specific queries for information retrieval from the page. Don'
 Explain the content of the page and that the requested information is not available in the page. Respond in JSON format.\nQuery: {query}\n Website:\n{page}"""
 			try:
 				formatted_prompt = prompt.format(query=query, page=content)
-				# Aggressive timeout for LLM call
-				response = await asyncio.wait_for(
-					page_extraction_llm.ainvoke([UserMessage(content=formatted_prompt)]),
-					timeout=120.0,  # 120 second aggressive timeout for LLM call
+				# Use retry logic for LLM call
+				from browser_use.llm.retry_utils import ainvoke_with_retry_timeout
+				response = await ainvoke_with_retry_timeout(
+					llm_instance=page_extraction_llm,
+					messages=[UserMessage(content=formatted_prompt)],
+					output_format=None,
+					request_interval=10,
+					max_retries=3,
+					logger_instance=logger
 				)
 
 				extracted_content = f'Page Link: {page.url}\nQuery: {query}\nExtracted Content:\n{response.completion}'
