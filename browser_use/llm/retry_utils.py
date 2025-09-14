@@ -77,7 +77,13 @@ async def ainvoke_with_retry_timeout(
                         for t in tasks:
                             if not t.done():
                                 t.cancel()
-                        return result
+                        # Fix: Return the completion (AgentOutput) directly instead of ChatInvokeCompletion
+                        if hasattr(result, 'completion'):
+                            logger_instance.debug(f"🔧 Extracting completion from ChatInvokeCompletion result")
+                            return result.completion
+                        else:
+                            logger_instance.warning(f"⚠️ Result has no completion attribute, returning as-is")
+                            return result
                     except Exception as e:
                         # Task failed, remove from list and continue
                         logger_instance.warning(f"❌ LLM request attempt failed: {str(e)}")
@@ -104,7 +110,13 @@ async def ainvoke_with_retry_timeout(
                         for t in tasks:
                             if not t.done():
                                 t.cancel()
-                        return result
+                        # Fix: Return the completion (AgentOutput) directly instead of ChatInvokeCompletion
+                        if hasattr(result, 'completion'):
+                            logger_instance.debug(f"🔧 Extracting completion from ChatInvokeCompletion result")
+                            return result.completion
+                        else:
+                            logger_instance.warning(f"⚠️ Result has no completion attribute, returning as-is")
+                            return result
                     except Exception as e:
           
                         # Task failed, remove and continue
