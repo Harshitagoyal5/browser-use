@@ -21,7 +21,7 @@ from browser_use.controller.registry.views import (
 from browser_use.filesystem.file_system import FileSystem
 from browser_use.llm.base import BaseChatModel
 from browser_use.observability import observe_debug
-from browser_use.telemetry.service import ProductTelemetry
+# from browser_use.telemetry.service import ProductTelemetry
 from browser_use.utils import is_new_tab_page, match_url_with_domain_pattern, time_execution_async
 
 Context = TypeVar('Context')
@@ -34,7 +34,7 @@ class Registry(Generic[Context]):
 
 	def __init__(self, exclude_actions: list[str] | None = None):
 		self.registry = ActionRegistry()
-		self.telemetry = ProductTelemetry()
+		# self.telemetry = ProductTelemetry()
 		self.exclude_actions = exclude_actions if exclude_actions is not None else []
 
 	def _get_special_param_types(self) -> dict[str, type | UnionType | None]:

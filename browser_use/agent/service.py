@@ -66,9 +66,9 @@ from browser_use.dom.history_tree_processor.service import (
 )
 from browser_use.filesystem.file_system import FileSystem
 from browser_use.observability import observe, observe_debug
-from browser_use.sync import CloudSync
-from browser_use.telemetry.service import ProductTelemetry
-from browser_use.telemetry.views import AgentTelemetryEvent
+# from browser_use.sync import CloudSync
+# from browser_use.telemetry.service import ProductTelemetry
+# from browser_use.telemetry.views import AgentTelemetryEvent
 from browser_use.utils import (
 	_log_pretty_path,
 	get_browser_use_version,
@@ -179,7 +179,7 @@ class Agent(Generic[Context, AgentStructuredOutput]):
 		source: str | None = None,
 		file_system_path: str | None = None,
 		task_id: str | None = None,
-		cloud_sync: CloudSync | None = None,
+		# cloud_sync: CloudSync | None = None,
 		calculate_cost: bool = False,
 		display_files_in_done_text: bool = True,
 		include_tool_call_examples: bool = False,
@@ -451,7 +451,7 @@ class Agent(Generic[Context, AgentStructuredOutput]):
 		self.context: Context | None = context
 
 		# Telemetry
-		self.telemetry = ProductTelemetry()
+		# self.telemetry = ProductTelemetry()
 
 		# Event bus with WAL persistence
 		# Default to ~/.config/browseruse/events/{agent_session_id}.jsonl
@@ -459,11 +459,11 @@ class Agent(Generic[Context, AgentStructuredOutput]):
 		self.eventbus = EventBus(name=f'Agent_{str(self.id)[-4:]}')
 
 		# Cloud sync service
-		self.enable_cloud_sync = CONFIG.BROWSER_USE_CLOUD_SYNC
-		if self.enable_cloud_sync or cloud_sync is not None:
-			self.cloud_sync = cloud_sync or CloudSync()
-			# Register cloud sync handler
-			self.eventbus.on('*', self.cloud_sync.handle_event)
+		# self.enable_cloud_sync = CONFIG.BROWSER_USE_CLOUD_SYNC
+		# if self.enable_cloud_sync:
+		# 	self.cloud_sync = CloudSync()
+		# 	# Register cloud sync handler
+		# 	self.eventbus.on('*', self.cloud_sync.handle_event)
 
 		if self.settings.save_conversation_path:
 			self.settings.save_conversation_path = Path(self.settings.save_conversation_path).expanduser().resolve()
@@ -1149,32 +1149,32 @@ class Agent(Generic[Context, AgentStructuredOutput]):
 		final_res = self.history.final_result()
 		final_result_str = json.dumps(final_res) if final_res is not None else None
 
-		self.telemetry.capture(
-			AgentTelemetryEvent(
-				task=self.task,
-				model=self.llm.model,
-				model_provider=self.llm.provider,
-				planner_llm=self.settings.planner_llm.model if self.settings.planner_llm else None,
-				max_steps=max_steps,
-				max_actions_per_step=self.settings.max_actions_per_step,
-				use_vision=self.settings.use_vision,
-				use_validation=self.settings.validate_output,
-				version=self.version,
-				source=self.source,
-				cdp_url=urlparse(self.browser_session.cdp_url).hostname
-				if self.browser_session and self.browser_session.cdp_url
-				else None,
-				action_errors=self.history.errors(),
-				action_history=action_history_data,
-				urls_visited=self.history.urls(),
-				steps=self.state.n_steps,
-				total_input_tokens=token_summary.prompt_tokens,
-				total_duration_seconds=self.history.total_duration_seconds(),
-				success=self.history.is_successful(),
-				final_result_response=final_result_str,
-				error_message=agent_run_error,
-			)
-		)
+		# self.telemetry.capture(
+		# 	AgentTelemetryEvent(
+		# 		task=self.task,
+		# 		model=self.llm.model,
+		# 		model_provider=self.llm.provider,
+		# 		planner_llm=self.settings.planner_llm.model if self.settings.planner_llm else None,
+		# 		max_steps=max_steps,
+		# 		max_actions_per_step=self.settings.max_actions_per_step,
+		# 		use_vision=self.settings.use_vision,
+		# 		use_validation=self.settings.validate_output,
+		# 		version=self.version,
+		# 		source=self.source,
+		# 		cdp_url=urlparse(self.browser_session.cdp_url).hostname
+		# 		if self.browser_session and self.browser_session.cdp_url
+		# 		else None,
+		# 		action_errors=self.history.errors(),
+		# 		action_history=action_history_data,
+		# 		urls_visited=self.history.urls(),
+		# 		steps=self.state.n_steps,
+		# 		total_input_tokens=token_summary.prompt_tokens,
+		# 		total_duration_seconds=self.history.total_duration_seconds(),
+		# 		success=self.history.is_successful(),
+		# 		final_result_response=final_result_str,
+		# 		error_message=agent_run_error,
+		# 	)
+		# )
 
 	async def take_step(self, step_info: AgentStepInfo | None = None) -> tuple[bool, bool]:
 		"""Take a step
@@ -1216,8 +1216,8 @@ class Agent(Generic[Context, AgentStructuredOutput]):
 		def on_force_exit_log_telemetry():
 			self._log_agent_event(max_steps=max_steps, agent_run_error='SIGINT: Cancelled by user')
 			# NEW: Call the flush method on the telemetry instance
-			if hasattr(self, 'telemetry') and self.telemetry:
-				self.telemetry.flush()
+			# if hasattr(self, 'telemetry') and self.telemetry:
+			# 	self.telemetry.flush()
 			self._force_exit_telemetry_logged = True  # Set the flag
 
 		signal_handler = SignalHandler(
@@ -1399,15 +1399,15 @@ class Agent(Generic[Context, AgentStructuredOutput]):
 					self.eventbus.dispatch(output_event)
 
 			# Wait briefly for cloud auth to start and print the URL, but don't block for completion
-			if self.enable_cloud_sync and hasattr(self, 'cloud_sync'):
-				if self.cloud_sync.auth_task and not self.cloud_sync.auth_task.done():
-					try:
-						# Wait up to 1 second for auth to start and print URL
-						await asyncio.wait_for(self.cloud_sync.auth_task, timeout=1.0)
-					except TimeoutError:
-						logger.info('Cloud authentication started - continuing in background')
-					except Exception as e:
-						logger.debug(f'Cloud authentication error: {e}')
+			# if self.enable_cloud_sync and hasattr(self, 'cloud_sync'):
+			# 	if self.cloud_sync.auth_task and not self.cloud_sync.auth_task.done():
+			# 		try:
+			# 			# Wait up to 1 second for auth to start and print URL
+			# 			await asyncio.wait_for(self.cloud_sync.auth_task, timeout=1.0)
+			# 		except TimeoutError:
+			# 			logger.info('Cloud authentication started - continuing in background')
+			# 		except Exception as e:
+			# 			logger.debug(f'Cloud authentication error: {e}')
 
 			# Stop the event bus gracefully, waiting for all events to be processed
 			# Use longer timeout to avoid deadlocks in tests with multiple agents
