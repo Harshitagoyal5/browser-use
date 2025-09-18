@@ -213,43 +213,43 @@ class Controller(Generic[Context]):
 				long_term_memory=f"Input '{params.text}' into element {params.index}.",
 			)
 
-		@self.registry.action('Upload file to interactive element with file path', param_model=UploadFileAction)
-		async def upload_file(params: UploadFileAction, browser_session: BrowserSession, available_file_paths: list[str]):
-			if params.path not in available_file_paths:
-				raise BrowserError(f'File path {params.path} is not available')
+		# @self.registry.action('Upload file to interactive element with file path', param_model=UploadFileAction)
+		# async def upload_file(params: UploadFileAction, browser_session: BrowserSession, available_file_paths: list[str]):
+		# 	if params.path not in available_file_paths:
+		# 		raise BrowserError(f'File path {params.path} is not available')
 
-			if not os.path.exists(params.path):
-				raise BrowserError(f'File {params.path} does not exist')
+		# 	if not os.path.exists(params.path):
+		# 		raise BrowserError(f'File {params.path} does not exist')
 
-			file_upload_dom_el = await browser_session.find_file_upload_element_by_index(
-				params.index, max_height=3, max_descendant_depth=3
-			)
+		# 	file_upload_dom_el = await browser_session.find_file_upload_element_by_index(
+		# 		params.index, max_height=3, max_descendant_depth=3
+		# 	)
 
-			if file_upload_dom_el is None:
-				msg = f'No file upload element found at index {params.index}'
-				logger.info(msg)
-				raise BrowserError(msg)
+		# 	if file_upload_dom_el is None:
+		# 		msg = f'No file upload element found at index {params.index}'
+		# 		logger.info(msg)
+		# 		raise BrowserError(msg)
 
-			file_upload_el = await browser_session.get_locate_element(file_upload_dom_el)
+		# 	file_upload_el = await browser_session.get_locate_element(file_upload_dom_el)
 
-			if file_upload_el is None:
-				msg = f'No file upload element found at index {params.index}'
-				logger.info(msg)
-				raise BrowserError(msg)
+		# 	if file_upload_el is None:
+		# 		msg = f'No file upload element found at index {params.index}'
+		# 		logger.info(msg)
+		# 		raise BrowserError(msg)
 
-			try:
-				await file_upload_el.set_input_files(params.path)
-				msg = f'📁 Successfully uploaded file to index {params.index}'
-				logger.info(msg)
-				return ActionResult(
-					extracted_content=msg,
-					include_in_memory=True,
-					long_term_memory=f'Uploaded file {params.path} to element {params.index}',
-				)
-			except Exception as e:
-				msg = f'Failed to upload file to index {params.index}: {str(e)}'
-				logger.info(msg)
-				raise BrowserError(msg)
+		# 	try:
+		# 		await file_upload_el.set_input_files(params.path)
+		# 		msg = f'📁 Successfully uploaded file to index {params.index}'
+		# 		logger.info(msg)
+		# 		return ActionResult(
+		# 			extracted_content=msg,
+		# 			include_in_memory=True,
+		# 			long_term_memory=f'Uploaded file {params.path} to element {params.index}',
+		# 		)
+		# 	except Exception as e:
+		# 		msg = f'Failed to upload file to index {params.index}: {str(e)}'
+		# 		logger.info(msg)
+		# 		raise BrowserError(msg)
 
 		# Tab Management Actions
 

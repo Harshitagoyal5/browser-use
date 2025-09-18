@@ -73,6 +73,12 @@ async def ainvoke_with_retry_timeout(
                         result = await completed_task
                         # Success! Cancel remaining and return
                         elapsed_time = time.time() - start_time
+                        # Expose elapsed time on the LLM instance for downstream consumers (e.g., step metadata)
+                        try:
+                            setattr(llm_instance, 'last_llm_request_duration_s', float(elapsed_time))
+                        except Exception:
+                            # Never block on telemetry storage
+                            pass
                         logger_instance.info(f"✅ LLM request completed successfully in {elapsed_time:.2f}s! Cancelling {len([t for t in tasks if not t.done()])} remaining tasks")
                         for t in tasks:
                             if not t.done():
@@ -106,6 +112,12 @@ async def ainvoke_with_retry_timeout(
        
                         # Success! Cancel remaining and return
                         elapsed_time = time.time() - start_time
+                        # Expose elapsed time on the LLM instance for downstream consumers (e.g., step metadata)
+                        try:
+                            setattr(llm_instance, 'last_llm_request_duration_s', float(elapsed_time))
+                        except Exception:
+                            # Never block on telemetry storage
+                            pass
                         logger_instance.info(f"✅ LLM request completed successfully in {elapsed_time:.2f}s! Cancelling {len([t for t in tasks if not t.done()])} remaining tasks")
                         for t in tasks:
                             if not t.done():
