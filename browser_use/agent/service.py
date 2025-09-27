@@ -504,7 +504,7 @@ class Agent(Generic[Context, AgentStructuredOutput]):
 		assert self.browser_session is not None, 'BrowserSession is not set up'
 		return self.browser_session.browser_profile
 
-	async def _ainvoke_with_retry_timeout(self, llm_instance: BaseChatModel, messages: list[BaseMessage], output_format: Any, request_interval=10, max_retries=3):
+	async def _ainvoke_with_retry_timeout(self, llm_instance: BaseChatModel, messages: list[BaseMessage], output_format: Any, request_interval=15, max_retries=3):
 		"""
 		Send LLM requests with retry logic and timeout handling.
 		Delegates to the utility function for consistency across the codebase.
@@ -770,7 +770,7 @@ class Agent(Generic[Context, AgentStructuredOutput]):
 		try:
 			model_output = await asyncio.wait_for(
 				# self._get_model_output_with_retry(input_messages), timeout=self.settings.llm_timeout
-				self._ainvoke_with_retry_timeout(self.llm, input_messages, output_format=self.AgentOutput, request_interval=10, max_retries=3), timeout=self.settings.llm_timeout
+				self._ainvoke_with_retry_timeout(self.llm, input_messages, output_format=self.AgentOutput, request_interval=15, max_retries=3), timeout=self.settings.llm_timeout
 			)
 			self.state.last_model_output = model_output
 		except TimeoutError:

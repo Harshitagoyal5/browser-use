@@ -19,7 +19,7 @@ async def ainvoke_with_retry_timeout(
     llm_instance: BaseChatModel, 
     messages: list[BaseMessage], 
     output_format: Any, 
-    request_interval: int = 10, 
+    request_interval: int = 15, 
     max_retries: int = 3,
     logger_instance: logging.Logger | None = None
 ):

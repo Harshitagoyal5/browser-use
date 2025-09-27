@@ -385,7 +385,7 @@ Explain the content of the page and that the requested information is not availa
 					llm_instance=page_extraction_llm,
 					messages=[UserMessage(content=formatted_prompt)],
 					output_format=None,
-					request_interval=10,
+					request_interval=15,
 					max_retries=3,
 					logger_instance=logger
 				)
