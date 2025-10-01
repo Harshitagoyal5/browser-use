@@ -1251,7 +1251,7 @@ class Agent(Generic[Context, AgentStructuredOutput]):
 			# Execute initial actions if provided
 			if self.initial_actions:
 				self.logger.debug(f'⚡ Executing {len(self.initial_actions)} initial actions...')
-				result = await self.multi_act(self.initial_actions, check_for_new_elements=False)
+				result = await self.multi_act(self.initial_actions, check_for_new_elements=False, continue_on_index_change=True)
 				self.state.last_result = result
 				self.logger.debug('✅ Initial actions completed')
 
@@ -1421,6 +1421,7 @@ class Agent(Generic[Context, AgentStructuredOutput]):
 		self,
 		actions: list[ActionModel],
 		check_for_new_elements: bool = True,
+		continue_on_index_change: bool = False,
 	) -> list[ActionResult]:
 		"""Execute multiple actions"""
 		results: list[ActionResult] = []
@@ -1456,16 +1457,30 @@ class Agent(Generic[Context, AgentStructuredOutput]):
 					new_target = new_selector_map.get(action.get_index())  # type: ignore
 					new_target_hash = new_target.hash.branch_path_hash if new_target else None
 					if orig_target_hash != new_target_hash:
-						msg = f'Element index changed after action {i} / {len(actions)}, because page changed.'
-						logger.info(msg)
-						results.append(
-							ActionResult(
-								extracted_content=msg,
-								include_in_memory=True,
-								long_term_memory=msg,
+						if continue_on_index_change:
+							msg = f'Element index changed after action {i} / {len(actions)}, continuing as requested.'
+							logger.info(msg)
+							results.append(
+								ActionResult(
+									extracted_content=msg,
+									include_in_memory=True,
+									long_term_memory=msg,
+								)
 							)
-						)
-						break
+							# Update cached maps for next iteration
+							cached_selector_map = new_selector_map
+							cached_path_hashes = {e.hash.branch_path_hash for e in cached_selector_map.values()}
+						else:
+							msg = f'Element index changed after action {i} / {len(actions)}, because page changed.'
+							logger.info(msg)
+							results.append(
+								ActionResult(
+									extracted_content=msg,
+									include_in_memory=True,
+									long_term_memory=msg,
+								)
+							)
+							break
 
 					new_path_hashes = {e.hash.branch_path_hash for e in new_selector_map.values()}
 					if check_for_new_elements and not new_path_hashes.issubset(cached_path_hashes):
@@ -1503,12 +1518,24 @@ class Agent(Generic[Context, AgentStructuredOutput]):
 				action_data = action.model_dump(exclude_unset=True)
 				action_name = next(iter(action_data.keys())) if action_data else 'unknown'
 				action_params = getattr(action, action_name, '')
-				self.logger.info(f'☑️ Executed action {i + 1}/{len(actions)}: {action_name}({action_params})')
-				if results[-1].is_done or results[-1].error or i == len(actions) - 1:
+				
+				# Check if this action had an error
+				if results[-1].error:
+					self.logger.error(f'❌ Action {i + 1}/{len(actions)} failed: {action_name}({action_params}) - Error: {results[-1].error}')
+					self.logger.info(f'🛑 Stopping multi_act execution due to action failure')
 					break
+				elif results[-1].is_done:
+					self.logger.info(f'☑️ Executed action {i + 1}/{len(actions)}: {action_name}({action_params})')
+					self.logger.info(f'✅ Task marked as done, stopping multi_act execution')
+					break
+				else:
+					self.logger.info(f'☑️ Executed action {i + 1}/{len(actions)}: {action_name}({action_params})')
+					if i == len(actions) - 1:
+						break
 
 			except Exception as e:
 				# Handle any exceptions during action execution
+				self.logger.info(f'❌ Action {i + 1}/{len(actions)} failed with exception: {e}', exc_info=True)
 				self.logger.error(f'Action {i + 1} failed: {type(e).__name__}: {e}')
 				raise e
 
